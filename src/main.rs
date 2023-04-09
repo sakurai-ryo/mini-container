@@ -40,10 +40,10 @@ fn setup_cgroup() {
 fn container_process(args: Vec<String>) -> isize {
     let command = args[1].clone();
     let args = &args[2..];
-    let cstr_command = CString::new(command).unwrap_or(CString::new("default").unwrap());
+    let cstr_command = CString::new(command).unwrap_or_else(|_| CString::new("default").unwrap());
     let cstr_args: Vec<CString> = args
         .iter()
-        .map(|arg| CString::new(arg.as_str()).unwrap_or(CString::new("default").unwrap()))
+        .map(|arg| CString::new(arg.as_str()).unwrap_or_else(|_| CString::new("default").unwrap()))
         .collect();
 
     setup_cgroup();
