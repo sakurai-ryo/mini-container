@@ -6,6 +6,7 @@ use nix::unistd::{chdir, chroot, execve, getpid, sethostname};
 use std::env;
 use std::ffi::CString;
 use std::fs::{create_dir_all, write};
+use std::io;
 use std::path::PathBuf;
 
 const ROOT_DIR: &str = "./root";
@@ -25,16 +26,16 @@ fn setup_child_process() -> Result<(), nix::errno::Errno> {
     Ok(())
 }
 
-fn setup_cgroup() {
+fn setup_cgroup() -> Result<(), io::Error> {
     // cgorup（今回はcgroup namespaceは利用しないので、ホスト側に作成される）
     let cgroup_path = &PathBuf::from("/sys/fs/cgroup/container");
-    create_dir_all(cgroup_path).unwrap();
+    create_dir_all(cgroup_path)?;
     write(
         cgroup_path.join("cgroup.procs"),
         getpid().as_raw().to_string(),
-    )
-    .unwrap(); // プロセスIDの書き込み、cgroupを適用する
-    write(cgroup_path.join("memory.max"), "50M").unwrap(); // メモリのハードリミットを50Mに設定する
+    )?; // プロセスIDの書き込み、cgroupを適用する
+    write(cgroup_path.join("memory.max"), "50M")?; // メモリのハードリミットを50Mに設定する
+    Ok(())
 }
 
 fn container_process(args: Vec<String>) -> isize {
@@ -46,13 +47,15 @@ fn container_process(args: Vec<String>) -> isize {
         .map(|arg| CString::new(arg.as_str()).unwrap_or_else(|_| CString::new("default").unwrap()))
         .collect();
 
-    setup_cgroup();
+    if let Err(e) = setup_cgroup() {
+        eprintln!("cgroup setting error: {:?}", e);
+        return -1;
+    }
 
     if let Err(e) = setup_child_process() {
         return e as isize;
     }
     if let Err(e) = execve::<CString, CString>(&cstr_command, &cstr_args, &[]) {
-        eprint!("Execve error: {:?}", e);
         return e as isize;
     }
     0
