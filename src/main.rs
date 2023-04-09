@@ -5,7 +5,7 @@ use nix::sys::wait::{waitpid, WaitStatus};
 use nix::unistd::{chdir, chroot, execve, getpid, sethostname};
 use std::env;
 use std::ffi::CString;
-use std::fs::create_dir_all;
+use std::fs::{create_dir_all, write};
 use std::path::PathBuf;
 
 const ROOT_DIR: &str = "./root";
@@ -29,12 +29,12 @@ fn setup_cgroup() {
     // cgorup（今回はcgroup namespaceは利用しないので、ホスト側に作成される）
     let cgroup_path = &PathBuf::from("/sys/fs/cgroup/container");
     create_dir_all(cgroup_path).unwrap();
-    std::fs::write(
+    write(
         cgroup_path.join("cgroup.procs"),
         getpid().as_raw().to_string(),
     )
     .unwrap(); // プロセスIDの書き込み、cgroupを適用する
-    std::fs::write(cgroup_path.join("memory.max"), "50M").unwrap(); // メモリのハードリミットを50Mに設定する
+    write(cgroup_path.join("memory.max"), "50M").unwrap(); // メモリのハードリミットを50Mに設定する
 }
 
 fn container_process(args: Vec<String>) -> isize {
