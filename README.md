@@ -28,3 +28,10 @@ $ mkdir root
 $ docker export $(docker create ubuntu) | tar -C root -xvf -
 $ cargo run -- /bin/bash
 ```
+
+cgroup v2 check
+```sh
+$ mount | grep cgroup
+cgroup2 on /sys/fs/cgroup type cgroup2 (rw,nosuid,nodev,noexec,relatime,nsdelegate,memory_recursiveprot)
+# `/sys/fs/cgroup`にcgroup2がマウントされていることを確認
+```
