@@ -129,6 +129,7 @@ fn setup_cgroup() -> Result<(), io::Error> {
     )?;
 
     // メモリのハードリミットを50Mに設定する
+    // TODO: cgroup rootに書き込むとエラーになるが、runcで作ったコンテナはcgroup rootに設定が書き込まれてる
     write(cgroup_path.join("memory.max"), "50M")?;
     Ok(())
 }
