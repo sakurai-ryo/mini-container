@@ -63,6 +63,14 @@ fn main() {
 }
 
 fn setup_cgroup() -> Result<(), io::Error> {
+    // コンテナのrootfsにcgroupfs用のディレクトリを作成しておく
+    create_dir_all(
+        PathBuf::from(ROOT_DIR)
+            .join("sys")
+            .join("fs")
+            .join("cgroup"),
+    )?;
+
     // containerという名前で作成する
     let cgroup_path = &PathBuf::from("/sys/fs/cgroup/container");
     create_dir_all(cgroup_path)?;
