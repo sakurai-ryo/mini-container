@@ -20,6 +20,13 @@ fn main() {
         return;
     }
 
+    // コンテナプロセスを作成する前に、事前にcgroupを作成して適用しておく
+    // コンテナプロセスはここで作成したcgroupをrootとして起動させるため
+    if let Err(e) = setup_cgroup() {
+        eprintln!("cgroup setting error: {:?}", e);
+        return;
+    }
+
     let mut stack = vec![0; 1024 * 1024];
     let clone_flags = CloneFlags::CLONE_NEWUTS // UTS namespace
     | CloneFlags::CLONE_NEWPID // PID namespace
@@ -53,6 +60,22 @@ fn main() {
             eprintln!("Error creating new process: {:?}", e);
         }
     }
+}
+
+fn setup_cgroup() -> Result<(), io::Error> {
+    // containerという名前で作成する
+    let cgroup_path = &PathBuf::from("/sys/fs/cgroup/container");
+    create_dir_all(cgroup_path)?;
+
+    // プロセスIDの書き込み、cgroupを適用する
+    write(
+        cgroup_path.join("cgroup.procs"),
+        getpid().as_raw().to_string(),
+    )?;
+
+    // メモリのハードリミットを50Mに設定する
+    write(cgroup_path.join("memory.max"), "50M")?;
+    Ok(())
 }
 
 fn container_process(args: Vec<String>) -> isize {
@@ -98,19 +121,6 @@ fn setup_child_process() -> Result<(), Errno> {
         None,
     )?;
 
-    if let Err(e) = setup_cgroup() {
-        eprintln!("cgroup setting error: {:?}", e);
-        return Err(Errno::UnknownErrno);
-    }
-
-    Ok(())
-}
-
-fn setup_cgroup() -> Result<(), io::Error> {
-    // cgorup namespaceを利用しているので、ホストとは隔離される
-    let cgroup_path = &PathBuf::from("/sys/fs/cgroup");
-    create_dir_all(cgroup_path)?;
-
     // cgroupfsのマウント
     // マウントの参考: https://gihyo.jp/admin/serial/01/linux_containers/0038#sec1
     // runcが読むconfig.jsonのprocfsの箇所: https://github.com/opencontainers/runtime-spec/blob/main/config.md#:~:text=%22nodev%22%0A%20%20%20%20%20%20%20%20%20%20%20%20%5D%0A%20%20%20%20%20%20%20%20%7D%2C%0A%20%20%20%20%20%20%20%20%7B-,%22destination%22,-%3A%20%22/sys/fs
@@ -122,14 +132,5 @@ fn setup_cgroup() -> Result<(), io::Error> {
         None,
     )?;
 
-    // プロセスIDの書き込み、cgroupを適用する
-    write(
-        cgroup_path.join("cgroup.procs"),
-        getpid().as_raw().to_string(),
-    )?;
-
-    // メモリのハードリミットを50Mに設定する
-    // TODO: cgroup rootに書き込むとエラーになるが、runcで作ったコンテナはcgroup rootに設定が書き込まれてる
-    write(cgroup_path.join("memory.max"), "50M")?;
     Ok(())
 }
