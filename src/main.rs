@@ -16,7 +16,7 @@ fn main() {
     let args: Vec<String> = env::args().collect();
 
     if args.len() < 2 {
-        eprintln!("Invalida arguments");
+        eprintln!("Invalid arguments");
         return;
     }
 
