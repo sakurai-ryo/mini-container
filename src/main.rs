@@ -122,17 +122,12 @@ fn setup_child_process() -> Result<(), nix::Error> {
     // runcの参孝コミット: https://github.com/opencontainers/runc/commit/117c92745bd098bf05a69489b7b78cac6364e1d0
     mount::<str, str, str, str>(None, "/", None, MsFlags::MS_REC | MsFlags::MS_PRIVATE, None)?;
 
-    // プロセスのRootディレクトリを変更（簡易化のためpivot_rootは使わない）
-    chroot(ROOT_DIR)?;
-    // 変更したRootディレクトリに移動
-    chdir("/")?;
-
     // procfsのマウント。man 8 mountにある通り、sourceは`proc`文字列にする
     // フラグの参考: https://github.com/opencontainers/runc/blob/main/libcontainer/SPEC.md#:~:text=Data-,/proc,-proc
     // runcが読むconfig.jsonのprocfsの箇所: https://github.com/opencontainers/runtime-spec/blob/main/config.md#:~:text=%22mounts%22%3A%20%5B%0A%20%20%20%20%20%20%20%20%7B-,%22destination%22,-%3A%20%22/proc
-    mount::<str, str, str, str>(
+    mount::<str, PathBuf, str, str>(
         Some("proc"),
-        "/proc",
+        &PathBuf::from(ROOT_DIR).join("proc"),
         Some("proc"),
         MsFlags::MS_NOEXEC | MsFlags::MS_NOSUID | MsFlags::MS_NODEV,
         None,
@@ -141,13 +136,21 @@ fn setup_child_process() -> Result<(), nix::Error> {
     // cgroupfsのマウント
     // マウントの参考: https://gihyo.jp/admin/serial/01/linux_containers/0038#sec1
     // runcが読むconfig.jsonのprocfsの箇所: https://github.com/opencontainers/runtime-spec/blob/main/config.md#:~:text=%22nodev%22%0A%20%20%20%20%20%20%20%20%20%20%20%20%5D%0A%20%20%20%20%20%20%20%20%7D%2C%0A%20%20%20%20%20%20%20%20%7B-,%22destination%22,-%3A%20%22/sys/fs
-    mount::<str, str, str, str>(
+    mount::<str, PathBuf, str, str>(
         Some("cgroup2"),
-        "/sys/fs/cgroup",
+        &PathBuf::from(ROOT_DIR)
+            .join("sys")
+            .join("fs")
+            .join("cgroup"),
         Some("cgroup2"),
         MsFlags::MS_NOSUID | MsFlags::MS_NOEXEC | MsFlags::MS_NODEV | MsFlags::MS_RELATIME,
         None,
     )?;
+
+    // プロセスのRootディレクトリを変更（簡易化のためpivot_rootは使わない）
+    chroot(ROOT_DIR)?;
+    // 変更したRootディレクトリに移動
+    chdir("/")?;
 
     Ok(())
 }
