@@ -1,4 +1,3 @@
-use nix::errno::Errno;
 use nix::mount::{mount, MsFlags};
 use nix::sched::{clone, unshare, CloneFlags};
 use nix::sys::signal::Signal;
@@ -98,15 +97,21 @@ fn container_process(args: Vec<String>) -> isize {
     0
 }
 
-fn setup_child_process() -> Result<(), Errno> {
+fn setup_child_process() -> Result<(), nix::Error> {
     // プロセスIDの書き込み、cgroupを適用する
-    if let Err(e) = write(
-        PathBuf::from(CGROUP_DIR).join("cgroup.procs"),
+    let write_res = write(
+        PathBuf::from(CGROUP_DIR).join("cgroup.proc"),
         getpid().as_raw().to_string(),
-    ) {
-        eprintln!("Error when writing cgroup.procs: {:?}", e);
-        return Err(Errno::UnknownErrno);
-    }
+    );
+    write_res.map_err(|e| {
+        eprintln!("write error: {:?}", e);
+        match e.raw_os_error() {
+            Some(errno) => nix::errno::from_i32(errno),
+            None => nix::errno::Errno::UnknownErrno,
+        }
+    })?;
+
+    // cgroup namespaceの適用
     unshare(CloneFlags::CLONE_NEWCGROUP)?;
 
     // UTS namespaceの動作確認のためhostnameを変更する
