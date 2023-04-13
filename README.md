@@ -35,9 +35,3 @@ $ mount | grep cgroup
 cgroup2 on /sys/fs/cgroup type cgroup2 (rw,nosuid,nodev,noexec,relatime,nsdelegate,memory_recursiveprot)
 # `/sys/fs/cgroup`にcgroup2がマウントされていることを確認
 ```
-
-TODO
-
-- cgroup namespace分離前にcgroup.procsに子プロセスのpidを書き込む
-    - 親プロセスでpidを書き込み、clone後に自動適用も可能だが、今回は親プロセスが子プロセスのexitまで残るため、親プロセスで親プロセスのpidを書き込むと、親プロセスにもcgroupが適用された状態になってします
-        - runcなどではコンテナプロセスのpidを親プロセスでcgroup.procsに書きこんだ後に親プロセスはexitするようになっている

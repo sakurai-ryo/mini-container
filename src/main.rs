@@ -133,9 +133,16 @@ fn setup_child_process() -> Result<(), nix::Error> {
         None,
     )?;
 
-    // cgroupfsのマウント
+    // sysfsとcgroupfsのマウント
     // マウントの参考: https://gihyo.jp/admin/serial/01/linux_containers/0038#sec1
     // runcが読むconfig.jsonのprocfsの箇所: https://github.com/opencontainers/runtime-spec/blob/main/config.md#:~:text=%22nodev%22%0A%20%20%20%20%20%20%20%20%20%20%20%20%5D%0A%20%20%20%20%20%20%20%20%7D%2C%0A%20%20%20%20%20%20%20%20%7B-,%22destination%22,-%3A%20%22/sys/fs
+    mount::<str, PathBuf, str, str>(
+        Some("sysfs"),
+        &PathBuf::from(ROOT_DIR).join("sys"),
+        Some("sysfs"),
+        MsFlags::MS_NOSUID | MsFlags::MS_NOEXEC | MsFlags::MS_NODEV,
+        None,
+    )?;
     mount::<str, PathBuf, str, str>(
         Some("cgroup2"),
         &PathBuf::from(ROOT_DIR)
