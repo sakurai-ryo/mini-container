@@ -1,6 +1,6 @@
 use nix::errno::Errno;
 use nix::mount::{mount, MsFlags};
-use nix::sched::{clone, CloneFlags};
+use nix::sched::{clone, unshare, CloneFlags};
 use nix::sys::signal::Signal;
 use nix::sys::wait::{waitpid, WaitStatus};
 use nix::unistd::{chdir, chroot, execve, getpid, sethostname};
@@ -11,6 +11,7 @@ use std::io;
 use std::path::PathBuf;
 
 const ROOT_DIR: &str = "./root";
+const CGROUP_DIR: &str = "/sys/fs/cgroup/container";
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -32,8 +33,7 @@ fn main() {
     | CloneFlags::CLONE_NEWPID // PID namespace
     | CloneFlags::CLONE_NEWNS // mount namespace
     | CloneFlags::CLONE_NEWIPC // IPC namespace
-    | CloneFlags::CLONE_NEWNET // network namespace
-    | CloneFlags::CLONE_NEWCGROUP; // cgroup namespace
+    | CloneFlags::CLONE_NEWNET; // network namespace
     match clone(
         Box::new(|| container_process(args.clone())),
         &mut stack,
@@ -72,14 +72,8 @@ fn setup_cgroup() -> Result<(), io::Error> {
     )?;
 
     // containerという名前で作成する
-    let cgroup_path = &PathBuf::from("/sys/fs/cgroup/container");
+    let cgroup_path = &PathBuf::from(CGROUP_DIR);
     create_dir_all(cgroup_path)?;
-
-    // プロセスIDの書き込み、cgroupを適用する
-    write(
-        cgroup_path.join("cgroup.procs"),
-        getpid().as_raw().to_string(),
-    )?;
 
     // メモリのハードリミットを50Mに設定する
     write(cgroup_path.join("memory.max"), "50M")?;
@@ -105,7 +99,17 @@ fn container_process(args: Vec<String>) -> isize {
 }
 
 fn setup_child_process() -> Result<(), Errno> {
-    // hostnameを変更する
+    // プロセスIDの書き込み、cgroupを適用する
+    if let Err(e) = write(
+        PathBuf::from(CGROUP_DIR).join("cgroup.procs"),
+        getpid().as_raw().to_string(),
+    ) {
+        eprintln!("Error when writing cgroup.procs: {:?}", e);
+        return Err(Errno::UnknownErrno);
+    }
+    unshare(CloneFlags::CLONE_NEWCGROUP)?;
+
+    // UTS namespaceの動作確認のためhostnameを変更する
     sethostname("container")?;
 
     // マウントプロパゲーションの無効化
