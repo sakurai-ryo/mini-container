@@ -100,7 +100,7 @@ fn container_process(args: Vec<String>) -> isize {
 fn setup_child_process() -> Result<(), nix::Error> {
     // プロセスIDの書き込み、cgroupを適用する
     let write_res = write(
-        PathBuf::from(CGROUP_DIR).join("cgroup.proc"),
+        PathBuf::from(CGROUP_DIR).join("cgroup.procs"),
         getpid().as_raw().to_string(),
     );
     write_res.map_err(|e| {
