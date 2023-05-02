@@ -99,11 +99,11 @@ fn container_process(args: Vec<String>) -> isize {
 
 fn setup_child_process() -> Result<(), nix::Error> {
     // プロセスIDの書き込み、cgroupを適用する
-    let write_res = write(
+    write(
         PathBuf::from(CGROUP_DIR).join("cgroup.procs"),
         getpid().as_raw().to_string(),
-    );
-    write_res.map_err(|e| {
+    )
+    .map_err(|e| {
         eprintln!("write error: {:?}", e);
         match e.raw_os_error() {
             Some(errno) => nix::errno::from_i32(errno),
